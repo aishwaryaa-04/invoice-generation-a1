@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f9f9f9;
+      color: #333;
+    }
+
+    .form-container, .invoice-container {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    h1, h2 {
+      text-align: center;
+      color: #007BFF;
+    }
+
+    h3 {
+      color: #555;
+    }
+
+    .form-group label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: #444;
+    }
+
+    .form-group input, .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      background-color: #007BFF;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th {
+      background-color: #007BFF;
+      color: #fff;
+      text-align: left;
+      padding: 10px;
+    }
+
+    td {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+
+    .total-row {
+      font-weight: bold;
+      color: #007BFF;
+    }
+
+    .actions {
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .actions button {
+      margin: 5px;
+    }
+
+    @media print {
+      .form-container, .actions {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="form-container">
+    <h1>AISHWARYA'S BROQUETTE</h1>
+    <h2>Invoice Input Form</h2>
+    <form id="invoice-form">
+      <div class="form-group">
+        <label for="customer-name">Customer Name:</label>
+        <input type="text" id="customer-name" required>
+      </div>
+      <div class="form-group">
+        <label for="customer-address">Customer Address:</label>
+        <textarea id="customer-address" rows="3" required></textarea>
+      </div>
+      <h3>Items</h3>
+      <div id="items-container">
+        <div class="item">
+          <div class="form-group">
+            <label>Item Description:</label>
+            <input type="text" class="item-description" required>
+          </div>
+          <div class="form-group">
+            <label>Quantity:</label>
+            <input type="number" class="quantity" min="1" required>
+          </div>
+          <div class="form-group">
+            <label>Price per Unit:</label>
+            <input type="number" class="price" step="0.01" required>
+          </div>
+          <div class="form-group">
+            <label>Tax Rate (%):</label>
+            <input type="number" class="tax-rate" step="0.01" required>
+          </div>
+          <hr>
+        </div>
+      </div>
+      <button type="button" onclick="addItem()">Add Another Item</button>
+      <div class="actions">
+        <button type="button" onclick="generateInvoice()">Generate Invoice</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="invoice-container" id="invoice" style="display: none;">
+    <h1>AISHWARYA'S BROQUETTE</h1>
+    <h2>Invoice</h2>
+    <p><strong>Customer Name:</strong> <span id="display-customer-name"></span></p>
+    <p><strong>Customer Address:</strong> <span id="display-customer-address"></span></p>
+    <p><strong>Date:</strong> <span id="display-date"></span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Item Description</th>
+          <th>Quantity</th>
+          <th>Price per Unit</th>
+          <th>Tax</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody id="invoice-items">
+      </tbody>
+    </table>
+    <p class="total-row"><strong>Grand Total: </strong> <span id="grand-total"></span></p>
+    <div class="actions">
+      <button onclick="downloadPDF()">Download PDF</button>
+      <button onclick="window.print()">Print</button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+  <script>
+    function addItem() {
+      const itemContainer = document.createElement('div');
+      itemContainer.classList.add('item');
+      itemContainer.innerHTML = `
+        <div class="form-group">
+          <label>Item Description:</label>
+          <input type="text" class="item-description" required>
+        </div>
+        <div class="form-group">
+          <label>Quantity:</label>
+          <input type="number" class="quantity" min="1" required>
+        </div>
+        <div class="form-group">
+          <label>Price per Unit:</label>
+          <input type="number" class="price" step="0.01" required>
+        </div>
+        <div class="form-group">
+          <label>Tax Rate (%):</label>
+          <input type="number" class="tax-rate" step="0.01" required>
+        </div>
+        <hr>
+      `;
+      document.getElementById('items-container').appendChild(itemContainer);
+    }
+
+    function generateInvoice() {
+      const customerName = document.getElementById("customer-name").value;
+      const customerAddress = document.getElementById("customer-address").value;
+      const items = document.querySelectorAll(".item");
+      const invoiceItemsContainer = document.getElementById("invoice-items");
+
+      let grandTotal = 0;
+      invoiceItemsContainer.innerHTML = '';
+
+      items.forEach(item => {
+        const description = item.querySelector(".item-description").value;
+        const quantity = parseFloat(item.querySelector(".quantity").value);
+        const price = parseFloat(item.querySelector(".price").value);
+        const taxRate = parseFloat(item.querySelector(".tax-rate").value);
+
+        const tax = (price * quantity * taxRate) / 100;
+        const total = price * quantity + tax;
+        grandTotal += total;
+
+        const row = `
+          <tr>
+            <td>${description}</td>
+            <td>${quantity}</td>
+            <td>${price.toFixed(2)}</td>
+            <td>${tax.toFixed(2)}</td>
+            <td>${total.toFixed(2)}</td>
+          </tr>
+        `;
+        invoiceItemsContainer.innerHTML += row;
+      });
+
+      const now = new Date();
+      const dateTime = now.toLocaleString();
+
+      document.getElementById("display-customer-name").textContent = customerName;
+      document.getElementById("display-customer-address").textContent = customerAddress;
+      document.getElementById("display-date").textContent = dateTime;
+      document.getElementById("grand-total").textContent = grandTotal.toFixed(2);
+
+      document.getElementById("invoice").style.display = "block";
+    }
+
+    function downloadPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const content = document.querySelector(".invoice-container").innerHTML;
+
+      doc.html(content, {
+        callback: function (doc) {
+          doc.save("invoice.pdf");
+        },
+        x: 10,
+        y: 10,
+      });
+    }
+</script>
+<div>
+  <h3>AISHWARYA'S BROQUETTE</h3>
+  <p>Diwan Bahadur road, R S Puram, Coimbatore</p>
+  <p>Coimbatore</p>
+  <p>aishwarybroquette@gmail.com</p>
+</div>
+<center><h1>THANK YOU! HAPPY TO HAVE YOU HERE !!!</h1></center>
+
+</body>
+</html>
